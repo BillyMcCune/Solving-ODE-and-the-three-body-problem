@@ -3,6 +3,7 @@ from space_object import SpaceObject
 from three_body_system import ThreeBodySystem
 from simulation_runner import SimulationRunner
 from Adams_Bashforth import AdamsBashforth
+from Adams_Moulton import AdamsMoulton
 import matplotlib.pyplot as plt
 
 r_sun = SpaceObject([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 1.989e30)
@@ -22,7 +23,7 @@ y0 = np.concatenate([
     r_sun.v, r_earth.v, r_moon.v
 ])
 
-runner = SimulationRunner(system, AdamsBashforth())
+runner = SimulationRunner(system, AdamsMoulton())
 
 times, states = runner.run(
     t0=0.0,
