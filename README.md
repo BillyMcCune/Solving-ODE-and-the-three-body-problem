@@ -21,3 +21,12 @@ total energy. The two physical systems are
 y′′ = −y, y(0) = y_0, y′(0) = 0, the simple harmonic oscillator,
 y′′ = − sin(y) y(0) = y_0, y′(0) = 0, the pendulum.
 
+# How to run
+- `python3 visual-simulation.py` runs model problem energy plots (SHO and pendulum).
+- `python3 visual-simulation.py` runs three-body energy + distance plots.
+- `python3 visual-simulation.py` runs three-body animation via `FuncAnimation`.
+
+# Methods
+- Adams-Bashforth (2nd order)
+- Adams-Moulton (2nd order)
+- Runge-Kutta 4 (comparison baseline)
