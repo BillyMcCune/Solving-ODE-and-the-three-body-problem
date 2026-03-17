@@ -32,6 +32,7 @@ def run_three_body_plots(
     compare_methods=True,
 ):
     system, y0 = _build_default_system()
+    seconds_per_year = 365.25 * 24.0 * 3600.0
 
     if compare_methods:
         method_classes = get_method_classes()
@@ -39,23 +40,27 @@ def run_three_body_plots(
         method_classes = {method_name: get_method_classes()[method_name]}
 
     plt.figure()
-    plt.title("Total Energy vs Time")
-    plt.xlabel("Time (s)")
+    title_suffix = ""
+    if not compare_methods:
+        title_suffix = f" ({method_name.value})"
+    plt.title(f"Total Energy vs Time{title_suffix}")
+    plt.xlabel("Time (years)")
     plt.ylabel("Energy (J)")
 
     plt.figure()
-    plt.title("Earth–Sun Distance vs Time")
-    plt.xlabel("Time (s)")
+    plt.title(f"Earth–Sun Distance vs Time{title_suffix}")
+    plt.xlabel("Time (years)")
     plt.ylabel("Distance (m)")
 
     plt.figure()
-    plt.title("Earth–Moon Distance vs Time")
-    plt.xlabel("Time (s)")
+    plt.title(f"Earth–Moon Distance vs Time{title_suffix}")
+    plt.xlabel("Time (years)")
     plt.ylabel("Distance (m)")
 
     for method_key, method_cls in method_classes.items():
         runner = SimulationRunner(system, method_cls())
         times, states = runner.run(t0=0.0, y0=y0, h=h, steps=steps)
+        times_years = times / seconds_per_year
 
         energy = []
         earth_sun_dist = []
@@ -73,13 +78,13 @@ def run_three_body_plots(
         label = method_key.value if hasattr(method_key, "value") else str(method_key)
 
         plt.figure(1)
-        plt.plot(times, energy, label=label)
+        plt.plot(times_years, energy, label=label)
 
         plt.figure(2)
-        plt.plot(times, earth_sun_dist, label=label)
+        plt.plot(times_years, earth_sun_dist, label=label)
 
         plt.figure(3)
-        plt.plot(times, earth_moon_dist, label=label)
+        plt.plot(times_years, earth_moon_dist, label=label)
 
     plt.figure(1)
     plt.legend()
@@ -92,7 +97,7 @@ def run_three_body_plots(
 
 
 def animate_three_body(
-    h=3600 * 6, steps=4 * 365, stride=4, method_name=MethodName.ADAMS_MOULTON
+    h=3600 * 6*32, steps=4 * 365 * 200, stride=200, method_name=MethodName.ADAMS_MOULTON
 ):
     system, y0 = _build_default_system()
     method_cls = get_method_classes()[method_name]
@@ -101,6 +106,8 @@ def animate_three_body(
     times, states = runner.run(t0=0.0, y0=y0, h=h, steps=steps)
     states = states[::stride]
     times = times[::stride]
+    seconds_per_year = 365.25 * 24.0 * 3600.0
+    times_years = times / seconds_per_year
 
     sun = states[:, 0:3]
     earth = states[:, 3:6]
@@ -112,7 +119,7 @@ def animate_three_body(
     max_extent = np.max(np.linalg.norm(earth[:, 0:2], axis=1)) * 1.2
     ax.set_xlim(-max_extent, max_extent)
     ax.set_ylim(-max_extent, max_extent)
-    ax.set_title("Three-Body Simulation")
+    ax.set_title(f"Three-Body Simulation ({method_name.value})")
 
     sun_scatter = ax.scatter([], [], s=60, label="Sun")
     earth_scatter = ax.scatter([], [], s=20, label="Earth")
@@ -131,13 +138,12 @@ def animate_three_body(
         sun_scatter.set_offsets(sun[i, 0:2])
         earth_scatter.set_offsets(earth[i, 0:2])
         moon_scatter.set_offsets(moon[i, 0:2])
-        time_text.set_text(f"t = {times[i]:.0f} s")
+        time_text.set_text(f"t = {times_years[i]:.2f} years")
         return sun_scatter, earth_scatter, moon_scatter, time_text
 
     anim = FuncAnimation(fig, update, frames=len(times), init_func=init, blit=True, interval=30)
     plt.show()
     return anim
-
 
 
 run_three_body_plots()
