@@ -26,6 +26,9 @@ y′′ = − sin(y) y(0) = y_0, y′(0) = 0, the pendulum.
 - `python3 visual-simulation.py` runs three-body energy + distance plots.
 - `python3 visual-simulation.py` runs three-body animation via `FuncAnimation`.
 
+# Documentation
+- See [IMPLEMENTATION_NOTES.md](IMPLEMENTATION_NOTES.md) for implementation notes, model definitions, and energy-unit details.
+
 # Three-body defaults
 - `run_three_body_plots(step_hours=6.0, duration_years=2.0, ...)` uses a 6-hour step over 2 years.
 - `animate_three_body(step_hours=12.0, duration_years=1.0, frame_stride=10, ...)` uses a 12-hour step over 1 year.
