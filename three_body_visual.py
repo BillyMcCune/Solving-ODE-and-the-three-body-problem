@@ -1,22 +1,59 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
+from matplotlib.ticker import FuncFormatter
 from space_object import SpaceObject
 from three_body_system import ThreeBodySystem
 from simulation_runner import SimulationRunner
 from methods_registry import MethodName, get_method_classes
 
+ASTRONOMICAL_UNIT_METERS = 1.495978707e11
+SECONDS_PER_HOUR = 3600.0
+HOURS_PER_YEAR = 365.25 * 24.0
+SECONDS_PER_YEAR = HOURS_PER_YEAR * SECONDS_PER_HOUR
+
+
+def _set_window_title(fig, title):
+    manager = getattr(fig.canvas, "manager", None)
+    if manager is not None and hasattr(manager, "set_window_title"):
+        manager.set_window_title(title)
+
+
+def _scientific_tick_label(value, _pos):
+    return f"{value:.2e}"
+
+
+def _simulation_grid(step_hours: float, duration_years: float) -> tuple[float, int]:
+    if step_hours <= 0.0:
+        raise ValueError("step_hours must be positive")
+    if duration_years <= 0.0:
+        raise ValueError("duration_years must be positive")
+
+    h = step_hours * SECONDS_PER_HOUR
+    steps = max(1, int(round(duration_years * HOURS_PER_YEAR / step_hours)))
+    return h, steps
+
 
 def _build_default_system():
+    earth_orbit_au = 1.0
+    moon_orbit_au = 3.844e8 / ASTRONOMICAL_UNIT_METERS
+    earth_speed_au_per_s = 2.978e4 / ASTRONOMICAL_UNIT_METERS
+    moon_speed_au_per_s = 1.022e3 / ASTRONOMICAL_UNIT_METERS
+
     r_sun = SpaceObject([0.0, 0.0, 0.0], [0.0, 0.0, 0.0], 1.989e30)
-    r_earth = SpaceObject([1.496e11, 0.0, 0.0], [0.0, 2.978e4, 0.0], 5.972e24)
+    r_earth = SpaceObject([earth_orbit_au, 0.0, 0.0], [0.0, earth_speed_au_per_s, 0.0], 5.972e24)
     r_moon = SpaceObject(
-        [1.496e11 + 3.844e8, 0.0, 0.0],
-        [0.0, 2.978e4 + 1.022e3, 0.0],
+        [earth_orbit_au + moon_orbit_au, 0.0, 0.0],
+        [0.0, earth_speed_au_per_s + moon_speed_au_per_s, 0.0],
         7.35e22,
     )
 
-    system = ThreeBodySystem(r_sun.mass, r_earth.mass, r_moon.mass)
+    system = ThreeBodySystem(
+        r_sun.mass,
+        r_earth.mass,
+        r_moon.mass,
+        length_scale=ASTRONOMICAL_UNIT_METERS,
+    )
     y0 = np.concatenate([
         r_sun.r, r_earth.r, r_moon.r,
         r_sun.v, r_earth.v, r_moon.v,
@@ -26,41 +63,55 @@ def _build_default_system():
 
 
 def run_three_body_plots(
-    h=3600 * 6,
-    steps=4 * 365,
-    method_name=MethodName.ADAMS_MOULTON,
+    step_hours=24.0,
+    duration_years=20000.0,
+    method_name=MethodName.ADAMS_BASHFORTH,
     compare_methods=True,
 ):
     system, y0 = _build_default_system()
-    seconds_per_year = 365.25 * 24.0 * 3600.0
+    h, steps = _simulation_grid(step_hours, duration_years)
 
+    available_methods = get_method_classes()
     if compare_methods:
-        method_classes = get_method_classes()
+        plot_methods = [
+            MethodName.ADAMS_BASHFORTH,
+            # MethodName.ADAMS_MOULTON,
+            MethodName.RUNGE_KUTTA4,
+            MethodName.VELOCITY_VERLET,
+        ]
+        method_classes = {method: available_methods[method] for method in plot_methods}
     else:
-        method_classes = {method_name: get_method_classes()[method_name]}
+        method_classes = {method_name: available_methods[method_name]}
 
-    plt.figure()
     title_suffix = ""
     if not compare_methods:
         title_suffix = f" ({method_name.value})"
-    plt.title(f"Total Energy vs Time{title_suffix}")
-    plt.xlabel("Time (years)")
-    plt.ylabel("Energy (J)")
+    energy_title = f"Total Energy vs Time{title_suffix}"
+    earth_sun_title = f"Earth–Sun Distance vs Time{title_suffix}"
+    earth_moon_title = f"Earth–Moon Distance vs Time{title_suffix}"
 
-    plt.figure()
-    plt.title(f"Earth–Sun Distance vs Time{title_suffix}")
-    plt.xlabel("Time (years)")
-    plt.ylabel("Distance (m)")
+    energy_fig, energy_ax = plt.subplots()
+    energy_ax.set_title(energy_title)
+    energy_ax.set_xlabel("Time (years)")
+    energy_ax.set_ylabel("Energy (J)")
+    _set_window_title(energy_fig, energy_title)
 
-    plt.figure()
-    plt.title(f"Earth–Moon Distance vs Time{title_suffix}")
-    plt.xlabel("Time (years)")
-    plt.ylabel("Distance (m)")
+    earth_sun_fig, earth_sun_ax = plt.subplots()
+    earth_sun_ax.set_title(earth_sun_title)
+    earth_sun_ax.set_xlabel("Time (years)")
+    earth_sun_ax.set_ylabel("Distance (AU)")
+    _set_window_title(earth_sun_fig, earth_sun_title)
+
+    earth_moon_fig, earth_moon_ax = plt.subplots()
+    earth_moon_ax.set_title(earth_moon_title)
+    earth_moon_ax.set_xlabel("Time (years)")
+    earth_moon_ax.set_ylabel("Distance (AU)")
+    _set_window_title(earth_moon_fig, earth_moon_title)
 
     for method_key, method_cls in method_classes.items():
         runner = SimulationRunner(system, method_cls())
         times, states = runner.run(t0=0.0, y0=y0, h=h, steps=steps)
-        times_years = times / seconds_per_year
+        times_years = times / SECONDS_PER_YEAR
 
         energy = []
         earth_sun_dist = []
@@ -77,37 +128,33 @@ def run_three_body_plots(
 
         label = method_key.value if hasattr(method_key, "value") else str(method_key)
 
-        plt.figure(1)
-        plt.plot(times_years, energy, label=label)
+        energy_ax.plot(times_years, energy, label=label)
+        earth_sun_ax.plot(times_years, earth_sun_dist, label=label)
+        earth_moon_ax.plot(times_years, earth_moon_dist, label=label)
 
-        plt.figure(2)
-        plt.plot(times_years, earth_sun_dist, label=label)
-
-        plt.figure(3)
-        plt.plot(times_years, earth_moon_dist, label=label)
-
-    plt.figure(1)
-    plt.legend()
-    plt.figure(2)
-    plt.legend()
-    plt.figure(3)
-    plt.legend()
+    energy_ax.legend()
+    energy_ax.yaxis.set_major_formatter(FuncFormatter(_scientific_tick_label))
+    earth_sun_ax.legend()
+    earth_moon_ax.legend()
 
     plt.show()
 
 
 def animate_three_body(
-    h=3600 * 6*32, steps=4 * 365 * 200, stride=200, method_name=MethodName.ADAMS_MOULTON
+    step_hours=12.0,
+    duration_years=1.0,
+    frame_stride=10,
+    method_name=MethodName.VELOCITY_VERLET,
 ):
     system, y0 = _build_default_system()
     method_cls = get_method_classes()[method_name]
     runner = SimulationRunner(system, method_cls())
+    h, steps = _simulation_grid(step_hours, duration_years)
 
     times, states = runner.run(t0=0.0, y0=y0, h=h, steps=steps)
-    states = states[::stride]
-    times = times[::stride]
-    seconds_per_year = 365.25 * 24.0 * 3600.0
-    times_years = times / seconds_per_year
+    states = states[::frame_stride]
+    times = times[::frame_stride]
+    times_years = times / SECONDS_PER_YEAR
 
     sun = states[:, 0:3]
     earth = states[:, 3:6]
@@ -120,6 +167,9 @@ def animate_three_body(
     ax.set_xlim(-max_extent, max_extent)
     ax.set_ylim(-max_extent, max_extent)
     ax.set_title(f"Three-Body Simulation ({method_name.value})")
+    ax.set_xlabel("x (AU)")
+    ax.set_ylabel("y (AU)")
+    _set_window_title(fig, f"Three-Body Simulation ({method_name.value})")
 
     sun_scatter = ax.scatter([], [], s=60, label="Sun")
     earth_scatter = ax.scatter([], [], s=20, label="Earth")
@@ -145,6 +195,6 @@ def animate_three_body(
     plt.show()
     return anim
 
-
-run_three_body_plots()
-animate_three_body()
+if __name__ == "__main__":
+    run_three_body_plots()
+    animate_three_body()
