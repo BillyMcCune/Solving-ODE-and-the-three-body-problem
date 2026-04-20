@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from matplotlib.ticker import FuncFormatter
+from pathlib import Path
 from space_object import SpaceObject
 from three_body_system import ThreeBodySystem
 from simulation_runner import SimulationRunner
@@ -21,6 +22,23 @@ def _set_window_title(fig, title):
 
 def _scientific_tick_label(value, _pos):
     return f"{value:.2e}"
+
+
+def _years_label(duration_years: float) -> str:
+    if float(duration_years).is_integer():
+        return f"{int(duration_years)} years"
+    return f"{duration_years:g} years"
+
+
+def _slugify(text: str) -> str:
+    return (
+        text.lower()
+        .replace("–", "-")
+        .replace(" ", "_")
+        .replace("(", "")
+        .replace(")", "")
+        .replace(",", "")
+    )
 
 
 def _simulation_grid(step_hours: float, duration_years: float) -> tuple[float, int]:
@@ -63,10 +81,12 @@ def _build_default_system():
 
 
 def run_three_body_plots(
-    step_hours=24.0,
-    duration_years=20000.0,
+    step_hours=24,
+    duration_years=20.0,
     method_name=MethodName.ADAMS_BASHFORTH,
     compare_methods=True,
+    output_dir=None,
+    show_plots=True,
 ):
     system, y0 = _build_default_system()
     h, steps = _simulation_grid(step_hours, duration_years)
@@ -76,16 +96,18 @@ def run_three_body_plots(
         plot_methods = [
             MethodName.ADAMS_BASHFORTH,
             # MethodName.ADAMS_MOULTON,
-            MethodName.RUNGE_KUTTA4,
-            MethodName.VELOCITY_VERLET,
+            #MethodName.RUNGE_KUTTA4,
+        #  MethodName.VELOCITY_VERLET,
         ]
         method_classes = {method: available_methods[method] for method in plot_methods}
     else:
         method_classes = {method_name: available_methods[method_name]}
 
-    title_suffix = ""
+    duration_label = _years_label(duration_years)
+    title_suffix = f" ({duration_label}"
     if not compare_methods:
-        title_suffix = f" ({method_name.value})"
+        title_suffix += f", {method_name.value}"
+    title_suffix += ")"
     energy_title = f"Total Energy vs Time{title_suffix}"
     earth_sun_title = f"Earth–Sun Distance vs Time{title_suffix}"
     earth_moon_title = f"Earth–Moon Distance vs Time{title_suffix}"
@@ -93,7 +115,7 @@ def run_three_body_plots(
     energy_fig, energy_ax = plt.subplots()
     energy_ax.set_title(energy_title)
     energy_ax.set_xlabel("Time (years)")
-    energy_ax.set_ylabel("Energy (J)")
+    energy_ax.set_ylabel("Energy (Joules)")
     _set_window_title(energy_fig, energy_title)
 
     earth_sun_fig, earth_sun_ax = plt.subplots()
@@ -137,7 +159,25 @@ def run_three_body_plots(
     earth_sun_ax.legend()
     earth_moon_ax.legend()
 
-    plt.show()
+    if output_dir is not None:
+        output_path = Path(output_dir)
+        output_path.mkdir(parents=True, exist_ok=True)
+
+        figures = [
+            (energy_fig, energy_title),
+            (earth_sun_fig, earth_sun_title),
+            (earth_moon_fig, earth_moon_title),
+        ]
+
+        for fig, title in figures:
+            fig.savefig(output_path / f"{_slugify(title)}.png", dpi=200, bbox_inches="tight")
+
+    if show_plots:
+        plt.show()
+    else:
+        plt.close(energy_fig)
+        plt.close(earth_sun_fig)
+        plt.close(earth_moon_fig)
 
 
 def animate_three_body(

@@ -25,6 +25,8 @@ y′′ = − sin(y) y(0) = y_0, y′(0) = 0, the pendulum.
 - `python3 visual-simulation.py` runs model problem energy plots (SHO and pendulum).
 - `python3 visual-simulation.py` runs three-body energy + distance plots.
 - `python3 visual-simulation.py` runs three-body animation via `FuncAnimation`.
+- `python3 run_three_body_individual_methods.py` runs three-body plots for each method over the requested year/step-size sweep and saves them in `three_body_individual_method_plots/`.
+- `python3 benchmark_three_body_metrics.py` benchmarks three-body runtime and energy drift, then saves a CSV and plots in `three_body_metric_benchmarks/`.
 
 # Documentation
 - See [IMPLEMENTATION_NOTES.md](IMPLEMENTATION_NOTES.md) for implementation notes, model definitions, and energy-unit details.
