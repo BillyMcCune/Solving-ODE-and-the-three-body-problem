@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+from matplotlib.animation import FFMpegWriter, FuncAnimation, PillowWriter
 from matplotlib.ticker import FuncFormatter
 from pathlib import Path
+import shutil
 from space_object import SpaceObject
 from three_body_system import ThreeBodySystem
 from simulation_runner import SimulationRunner
@@ -185,6 +186,9 @@ def animate_three_body(
     duration_years=1.0,
     frame_stride=10,
     method_name=MethodName.VELOCITY_VERLET,
+    save_path=None,
+    fps=30,
+    show_plot=True,
 ):
     system, y0 = _build_default_system()
     method_cls = get_method_classes()[method_name]
@@ -232,7 +236,28 @@ def animate_three_body(
         return sun_scatter, earth_scatter, moon_scatter, time_text
 
     anim = FuncAnimation(fig, update, frames=len(times), init_func=init, blit=True, interval=30)
-    plt.show()
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        suffix = save_path.suffix.lower()
+
+        if suffix == ".gif":
+            writer = PillowWriter(fps=fps)
+        elif suffix == ".mp4":
+            if shutil.which("ffmpeg") is None:
+                raise RuntimeError("Saving MP4 requires ffmpeg to be installed and on PATH.")
+            writer = FFMpegWriter(fps=fps)
+        else:
+            raise ValueError("save_path must end in .gif or .mp4")
+
+        anim.save(save_path, writer=writer)
+
+    if show_plot:
+        plt.show()
+    else:
+        plt.close(fig)
+
     return anim
 
 if __name__ == "__main__":
